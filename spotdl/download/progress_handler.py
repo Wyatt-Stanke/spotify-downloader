@@ -490,7 +490,7 @@ class SongTracker:
         if self.parent.simple_tui and not self.parent.web_ui:
             self.progress = 70
         else:
-            self.progress = 70 + int(progress * .25)
+            self.progress = 70 + int(progress * 0.25)
 
         self.update("Converting")
 
