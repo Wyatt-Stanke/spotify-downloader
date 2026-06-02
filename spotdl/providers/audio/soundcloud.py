@@ -40,7 +40,7 @@ class SoundCloud(AudioProvider):
 
     def get_results(self, search_term: str, *_args, **_kwargs) -> List[Result]:
         """
-        Get results from slider.kz
+        Get results from SoundCloud
 
         ### Arguments
         - search_term: The search term to search for.
@@ -48,7 +48,7 @@ class SoundCloud(AudioProvider):
         - kwargs: Unused.
 
         ### Returns
-        - A list of slider.kz results if found, None otherwise.
+        - A list of SoundCloud results if found, None otherwise.
         """
 
         results = list(islice(self.client.search(search_term), 20))
