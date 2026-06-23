@@ -38,7 +38,7 @@ from spotdl.utils.config import (
     get_temp_path,
     modernize_settings,
 )
-from spotdl.utils.ffmpeg import FFmpegError, convert, get_ffmpeg_path
+from spotdl.utils.ffmpeg import FFmpegError, convert, async_convert, get_ffmpeg_path
 from spotdl.utils.formatter import create_file_name
 from spotdl.utils.lrc import generate_lrc
 from spotdl.utils.m3u import gen_m3u_files
@@ -372,7 +372,7 @@ class Downloader:
         # tasks that cannot acquire semaphore will wait here until it's free
         # only certain amount of tasks can acquire the semaphore at the same time
         async with self.semaphore:
-            return await self.loop.run_in_executor(None, self.search_and_download, song)
+            return await self.async_search_and_download(song)
 
     def search(self, song: Song) -> str:
         """
@@ -422,11 +422,19 @@ class Downloader:
 
         return None
 
-    def search_and_download(  # pylint: disable=R0911
+    def search_and_download(
         self, song: Song
     ) -> Tuple[Song, Optional[Path]]:
         """
-        Search for the song and download it.
+        Synchronous wrapper for async_search_and_download.
+        """
+        return self.loop.run_until_complete(self.async_search_and_download(song))
+
+    async def async_search_and_download(  # pylint: disable=R0911
+        self, song: Song
+    ) -> Tuple[Song, Optional[Path]]:
+        """
+        Search for the song and download it asynchronously.
 
         ### Arguments
         - song: The song to download.
@@ -435,7 +443,7 @@ class Downloader:
         - tuple with the song and the path to the downloaded file if successful.
 
         ### Notes
-        - This function is synchronous.
+        - This function is asynchronous.
         """
 
         # Check if song has name/artist and url/song_id
@@ -464,7 +472,8 @@ class Downloader:
             )
         ):
             try:
-                song = reinit_song(song)
+                song = await self.loop.run_in_executor(None, reinit_song, song)
+
             except Exception as e:
                 logger.error("Error occurred while reinitializing song: %s", e)
                 self.errors.append(f"Error occurred while reinitializing song: {e}")
@@ -566,7 +575,7 @@ class Downloader:
 
             # Find song lyrics and add them to the song object
             try:
-                lyrics = self.search_lyrics(song)
+                lyrics = await self.loop.run_in_executor(None, self.search_lyrics, song)
                 if lyrics is None:
                     logger.debug(
                         "No lyrics found for %s, lyrics providers: %s",
@@ -630,10 +639,13 @@ class Downloader:
                     return song, None
 
                 # Update the metadata
-                embed_metadata(
-                    output_file=output_file,
-                    song=song,
-                    skip_album_art=self.settings["skip_album_art"],
+                await self.loop.run_in_executor(
+                    None,
+                    lambda: embed_metadata(
+                        output_file=output_file,
+                        song=song,
+                        skip_album_art=self.settings["skip_album_art"],
+                    )
                 )
 
                 logger.info(
@@ -676,15 +688,18 @@ class Downloader:
 
             if song.download_url is None:
                 display_progress_tracker.notify_searching()
-                download_url = self.search(song)
+                download_url = await self.loop.run_in_executor(None, self.search, song)
             else:
                 download_url = song.download_url
 
             display_progress_tracker.notify_getting_meta()
 
             logger.debug("Downloading %s using %s", song.display_name, download_url)
-            download_info = audio_downloader.get_download_metadata(
-                download_url, download=True
+            download_info = await self.loop.run_in_executor(
+                None,
+                lambda: audio_downloader.get_download_metadata(
+                    download_url, download=True
+                )
             )
 
             if download_info is None:
@@ -714,7 +729,7 @@ class Downloader:
                 self.settings["audio_providers"][0] == "piped"
                 and self.settings["bitrate"] != "disable"
             ):
-                shutil.move(str(temp_file), output_file)
+                await self.loop.run_in_executor(None, shutil.move, str(temp_file), str(output_file))
                 success = True
                 result = None
             else:
@@ -732,7 +747,7 @@ class Downloader:
                     bitrate = str(self.settings["bitrate"])
 
                 # Convert the downloaded file to the output format
-                success, result = convert(
+                success, result = await async_convert(
                     input_file=temp_file,
                     output_file=output_file,
                     ffmpeg=self.ffmpeg,
@@ -803,7 +818,11 @@ class Downloader:
                 )
 
                 # Run the post processor to get the sponsor segments
-                _, download_info = post_processor.run(download_info)
+                _, download_info = await self.loop.run_in_executor(
+                    None,
+                    post_processor.run,
+                    download_info
+                )
                 chapters = download_info["sponsorblock_chapters"]
 
                 # If there are sponsor segments, remove them
@@ -822,18 +841,25 @@ class Downloader:
 
                     # Run the post processor to remove the sponsor segments
                     # this returns a list of files to delete
-                    files_to_delete, download_info = modify_chapters.run(download_info)
+                    files_to_delete, download_info = await self.loop.run_in_executor(
+                        None,
+                        modify_chapters.run,
+                        download_info
+                    )
 
                     # Delete the files that were created by the post processor
                     for file_to_delete in files_to_delete:
                         Path(file_to_delete).unlink()
 
             try:
-                embed_metadata(
-                    output_file,
-                    song,
-                    id3_separator=self.settings["id3_separator"],
-                    skip_album_art=self.settings["skip_album_art"],
+                await self.loop.run_in_executor(
+                    None,
+                    lambda: embed_metadata(
+                        output_file,
+                        song,
+                        id3_separator=self.settings["id3_separator"],
+                        skip_album_art=self.settings["skip_album_art"],
+                    )
                 )
             except Exception as exception:
                 raise MetadataError(
@@ -841,7 +867,7 @@ class Downloader:
                 ) from exception
 
             if self.settings["generate_lrc"]:
-                generate_lrc(song, output_file)
+                await self.loop.run_in_executor(None, generate_lrc, song, output_file)
 
             display_progress_tracker.notify_complete()
             display_progress_tracker.set_path(str(output_file))
