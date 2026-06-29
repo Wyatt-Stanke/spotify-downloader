@@ -9,10 +9,7 @@ from urllib.parse import parse_qs, urlparse
 import requests
 from requests.exceptions import JSONDecodeError
 
-from spotdl.providers.audio.base import (
-    ISRC_REGEX,
-    AudioProvider,
-)
+from spotdl.providers.audio.base import ISRC_REGEX, AudioProvider
 from spotdl.types.result import Result
 from spotdl.utils.config import GlobalConfig
 
