@@ -81,7 +81,9 @@ class SoundCloud(AudioProvider):
                     url=result.permalink_url,
                     name=result.title,
                     verified=result.user.verified,
-                    duration=result.full_duration,
+                    # SoundCloud reports duration in milliseconds, but the
+                    # matcher (and every other provider) works in seconds.
+                    duration=result.full_duration / 1000,
                     author=result.user.username,
                     result_id=str(result.id),
                     isrc_search=False,
