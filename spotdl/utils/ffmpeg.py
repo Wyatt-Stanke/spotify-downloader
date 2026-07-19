@@ -124,6 +124,7 @@ def get_ffmpeg_path() -> Optional[Path]:
     return get_local_ffmpeg()
 
 
+@functools.lru_cache(maxsize=None)
 def get_ffmpeg_version(ffmpeg: str = "ffmpeg") -> Tuple[Optional[float], Optional[int]]:
     """
     Get ffmpeg version.
