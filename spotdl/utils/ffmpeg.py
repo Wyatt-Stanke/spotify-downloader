@@ -475,7 +475,7 @@ async def async_convert(
 
         if process.returncode != 0:
             version = get_ffmpeg_version(ffmpeg)
-            message = proc_out.decode("utf-8") if proc_out else ""
+            message = proc_out.decode("utf-8", errors="replace") if proc_out else ""
 
             return False, {
                 "return_code": process.returncode,
