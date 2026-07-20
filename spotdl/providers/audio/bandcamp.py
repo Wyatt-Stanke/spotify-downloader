@@ -204,8 +204,6 @@ class BandCamp(AudioProvider):
 
         try:
             results = search(search_term)
-        except KeyError:
-            return []
         except Exception as exc:
             logger.error("Failed to get results from BandCamp", exc_info=exc)
             return []
