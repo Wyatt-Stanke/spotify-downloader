@@ -32,6 +32,10 @@ if tls_client_spec is None or tls_client_spec.origin is None:
     raise RuntimeError("Could not find tls_client package")
 
 tls_client_path = Path(tls_client_spec.origin).parent
+# This branch logic is copied verbatim from tls_client/cffi.py and must stay
+# in sync with it, so that the bundled binary is exactly the one the runtime
+# loader will request. Note "x86" in machine() matches x86_64 on Linux — that
+# is not a bug here; tls_client's own loader picks tls-client-x86.so there too.
 if sys.platform == "darwin":
     tls_client_file_ext = "-arm64.dylib" if machine() == "arm64" else "-x86.dylib"
 elif sys.platform in ("win32", "cygwin"):
