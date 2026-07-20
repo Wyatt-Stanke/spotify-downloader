@@ -190,7 +190,7 @@ def get_simple_songs(
                 yt_song.name = video_details["title"]
                 yt_song.artist = video_details["author"]
                 yt_song.artists = [video_details["author"]]
-                yt_song.duration = video_details["lengthSeconds"]
+                yt_song.duration = int(video_details["lengthSeconds"])
 
             yt_song.download_url = request
             songs.append(yt_song)
